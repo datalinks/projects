@@ -1,10 +1,10 @@
 Manifest-Version: 1.0
 Built-By: infra2
 Main-Class: com.globalcollect.infra2.ebwtool.util.EbwCopyTool
-Class-Path: : /tmp/jsch-0.1.50.jar 
- /tmp/log4j-1.2.16.jar 
- /tmp/commons-lang-2.3.jar 
+Class-Path: : /export/home/cvugrinec/eiger/lib/jsch-0.1.50.jar 
+ /export/home/cvugrinec/eiger/lib/log4j-1.2.16.jar 
+ /export/home/cvugrinec/eiger/lib/commons-lang-2.3.jar 
+ /export/home/cvugrinec/eiger/config/
 Build-Jdk: 1.7.0_45
 Created-By: Apache Maven 3.1.1
 Archiver-Version: Plexus Archiver
-

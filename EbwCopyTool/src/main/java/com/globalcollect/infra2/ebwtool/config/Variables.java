@@ -13,7 +13,7 @@ package com.globalcollect.infra2.ebwtool.config;
  */
 public interface Variables {
     public static String EBWT_USER = "ebw";
-    public static String EBWT_ID_KEY = "/export/home/eiger/.ssh/id_rsa";
-    public static String EBWT_SRC_DIR = "/tmp/chris_workspace/datamanager/ou/";
-    public static String EBWT_SEQ_FILE = "/tmp/ebwt_seq";
+    public static String EBWT_APP_CFG = "app.properties";
+    public static String EBWT_SERVER_CFG = "servers.properties";
+
 }

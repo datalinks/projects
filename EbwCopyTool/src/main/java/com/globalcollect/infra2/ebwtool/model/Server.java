@@ -10,6 +10,16 @@ package com.globalcollect.infra2.ebwtool.model;
  * @author cvugrine
  */
 public class Server {
+    private String propertyFile;
+
+    public String getPropertyFile() {
+        return propertyFile;
+    }
+
+    public void setPropertyFile(String propertyFile) {
+        this.propertyFile = propertyFile;
+    }
+    
     private String dataDirectory;
 
     public String getDataDirectory() {
