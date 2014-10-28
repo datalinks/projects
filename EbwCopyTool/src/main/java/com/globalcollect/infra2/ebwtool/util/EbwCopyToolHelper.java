@@ -39,7 +39,7 @@ public class EbwCopyToolHelper {
     }
 
     static String removeLastChar(String str) {
-        return str.substring(0, str.length() - 1);
+        return str.substring(0, str.length() -1);
     }
 
     static String getLastElement(String theString, String theSeparator) {
@@ -118,6 +118,79 @@ public class EbwCopyToolHelper {
         }
     }
 
+    
+    public static void restartServer(String key, String user, String host, String sequence, String fileName) throws Exception {
+        
+        String msg = null;
+        DataInputStream dataIn = null;
+        DataOutputStream dataOut = null;
+        ChannelExec channel = null;
+        Session session = null;
+        String command = "./"+fileName;
+        String expectedLine1 = "TableSet: "+sequence;
+        String expectedLine2 = "initialisation: Suceeded";
+        String expectedLine3 = "Server is ready to receive requests";
+        boolean expectation1 = false;
+        boolean expectation2 = false;
+        boolean expectation3 = false;
+        try{
+            
+            session = getSshSession(key, user, host);
+            channel=(ChannelExec) session.openChannel("exec");
+            BufferedReader in=new BufferedReader(new InputStreamReader(channel.getInputStream()));
+            
+            
+            channel.setCommand(command);
+            channel.setErrStream(System.err);
+            channel.connect();
+            
+            //  Iterate over all the line...untill all expectations are set to true
+/*            
+            while(  ((msg=in.readLine())!=null) && 
+                    (expectation1 && expectation2 && expectation3)){
+                log.debug(msg);
+                if( msg.contains(expectedLine1)){
+                    log.debug("Expectation "+expectedLine1+" --> OK");
+                    expectation1 = true;
+                }
+                if( msg.contains(expectedLine2)){
+                    log.debug("Expectation "+expectedLine2+" --> OK");
+                    expectation2 = true;
+                }
+                if( msg.contains(expectedLine3)){
+                    log.debug("Expectation "+expectedLine3+" --> OK");
+                    expectation3 = true;                    
+                }
+                if(expectation1 && expectation2 && expectation3){
+                    log.debug("ALL --> OK...exiting now!!!");
+                    break;
+                }
+            }                
+*/
+            String error = convertStreamToString(channel.getErrStream());
+            if(!error.isEmpty()){
+                msg = "Something went wrong executing : "+command+" on host: "+host+" error: "+error;
+                log.error(msg);
+                throw new Exception(msg);
+            }
+        }catch(JSchException ex){
+            msg = "Exception during executeRemoteCommand, msg was: "+ex.getMessage();
+            log.error(msg);
+            throw new Exception(msg);
+        }catch(IOException ex){
+            msg = "IOException during executeRemoteCommand, msg was: "+ex.getMessage();
+            log.error(msg);
+            throw new Exception(msg);
+        }finally{
+            log.debug("disconnecting session and channel");
+            channel.disconnect();
+            session.disconnect();
+        }
+    }
+
+    
+    
+    
     static String convertStreamToString(InputStream is) throws IOException{
         int k;
         StringBuffer sb=new StringBuffer();
