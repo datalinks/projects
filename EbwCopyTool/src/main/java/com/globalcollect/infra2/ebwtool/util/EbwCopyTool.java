@@ -230,17 +230,6 @@ public class EbwCopyTool extends Thread implements Variables {
         String command = "rm -f ~/"+scriptNameWithoutPath;
         EbwCopyToolHelper.executeRemoteCommand(EBWT_KEY, EBWT_USER, host, command);
         
-        /*
-        cmds = new String[]{ EBWT_SCRIPT_RMUPDATEDB, host, scriptNameWithoutPath, EBWT_USER };
-        pb = new ProcessBuilder(cmds);
-        log.debug("Executing remove updateDB script : "+Arrays.toString(cmds));
-        p = pb.start();
-        if(p.waitFor()!=0){
-            msg = "Error executing cmd: "+Arrays.toString(cmds);
-            log.error(msg);
-            throw new Exception(msg);
-        }
-        */
         
     }
     
