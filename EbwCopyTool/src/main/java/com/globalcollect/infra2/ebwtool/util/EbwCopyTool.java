@@ -6,7 +6,10 @@
 package com.globalcollect.infra2.ebwtool.util;
 
 import com.globalcollect.infra2.ebwtool.config.Variables;
+import com.globalcollect.infra2.ebwtool.model.Environments;
 import com.globalcollect.infra2.ebwtool.model.Server;
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.Session;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -44,9 +47,11 @@ public class EbwCopyTool extends Thread implements Variables {
     private static String sequence;
     private static String EBWT_SEQ_FILE;
     private static String EBWT_SRC_DIR;
+    private static String EBWT_SCRIPT_UPDATEDB;
+    private static String EBWT_SCRIPT_RMUPDATEDB;
     private static String NEXT_SEQUENCE;
+    private static String EBWT_KEY;
 
-    
 
     //  Initializing...app need to have servers.properties 
     //  this can be changed to other path as well, just change the serverFilename var
@@ -81,12 +86,14 @@ public class EbwCopyTool extends Thread implements Variables {
                         Server aServer = new Server();
                         aServer.setName(key);
                         String ipAddress = values[0];
-                        String dataDirectory = values[1];
-                        String propertyFile = values[2];
+                        Environments env = EbwCopyToolHelper.getEnvironment(values[1]);
+                        aServer.setEnvironment(env);
+                        String dataDirectory = values[2];
+                        String propertyFile = values[3];
                         aServer.setIpAddress(ipAddress);
                         aServer.setDataDirectory(dataDirectory);
                         aServer.setPropertyFile(propertyFile);
-                        if(ipAddress==null || dataDirectory==null || propertyFile==null  ){
+                        if(ipAddress==null || dataDirectory==null || propertyFile==null || env==null  ){
                             throw new Exception("properties not correct filled  for...key: "+key);
                         }
                         serverList.add(aServer);
@@ -95,6 +102,10 @@ public class EbwCopyTool extends Thread implements Variables {
                 // ;)
                 EBWT_SRC_DIR = appPropz.getProperty("EBWT_SRC_DIR");
                 EBWT_SEQ_FILE = appPropz.getProperty("EBWT_SEQ_FILE");
+                EBWT_SCRIPT_UPDATEDB = appPropz.getProperty("EBWT_SCRIPT_UPDATEDB");
+                EBWT_SCRIPT_RMUPDATEDB = appPropz.getProperty("EBWT_SCRIPT_RMUPDATEDB");
+                
+                EBWT_KEY = appPropz.getProperty("EBWT_KEY");
 
                 BufferedReader br = new BufferedReader(new FileReader(EBWT_SEQ_FILE));
                 String  sCurrentLine = null;
@@ -186,10 +197,56 @@ public class EbwCopyTool extends Thread implements Variables {
 
     }
     
+    //  Copy the localupdatedb script to the remote server execute the script remote and then remove the remote script
+    private void updateDatabase(Server server) throws IOException, InterruptedException, Exception{
+        String host = server.getIpAddress();
+        Environments env = server.getEnvironment();
+        
+        String msg;
+        
+        // Copy File remote to local
+        String[] cmds = new String[]{"scp",EBWT_SCRIPT_UPDATEDB,EBWT_USER+"@"+host+":~" };
+        ProcessBuilder pb = new ProcessBuilder(cmds);
+        Process p = pb.start();
+        if(p.waitFor()!=0){
+            msg = "Error executing cmd: "+Arrays.toString(cmds);
+            log.error(msg);
+            throw new Exception(msg);
+        }
     
-    private boolean renameFiles() throws Exception{
+        //  Execute the script with the following params: ENV=$1   SEQ=$2
+        String scriptNameWithoutPath = EbwCopyToolHelper.getLastElement(EBWT_SCRIPT_UPDATEDB,"/");
+        cmds = new String[]{"ssh",EBWT_USER+"@"+host,"'./"+scriptNameWithoutPath+"'",env.toString(),NEXT_SEQUENCE };
+        pb = new ProcessBuilder(cmds);
+        log.debug("Executing updateDB script : "+Arrays.toString(cmds));
+        //p = pb.start();
+        if(p.waitFor()!=0){
+            msg = "Error executing cmd: "+Arrays.toString(cmds);
+            log.error(msg);
+            throw new Exception(msg);
+        }
+
+        //  Removing the remote file with params host=$1  fileName=$2   user=$3
+        String command = "rm -f ~/"+scriptNameWithoutPath;
+        EbwCopyToolHelper.executeRemoteCommand(EBWT_KEY, EBWT_USER, host, command);
+        
+        /*
+        cmds = new String[]{ EBWT_SCRIPT_RMUPDATEDB, host, scriptNameWithoutPath, EBWT_USER };
+        pb = new ProcessBuilder(cmds);
+        log.debug("Executing remove updateDB script : "+Arrays.toString(cmds));
+        p = pb.start();
+        if(p.waitFor()!=0){
+            msg = "Error executing cmd: "+Arrays.toString(cmds);
+            log.error(msg);
+            throw new Exception(msg);
+        }
+        */
+        
+    }
+    
+    
+    private void renameFiles() throws Exception{
     	Path dir = Paths.get(EBWT_SRC_DIR);
-        boolean result = true;
         String msg;
         
         DirectoryStream<Path> stream = null;
@@ -230,11 +287,11 @@ public class EbwCopyTool extends Thread implements Variables {
             if(oldfile.renameTo(newfile)){
                 log.info("Rename from : "+oldfile.getName()+" to : "+newFileName+" SUCCES");
             }else{
-                log.error("Rename from : "+oldfile.getName()+" to : "+newFileName+" FAILED");
-                result = false;
+                msg = "Rename from : "+oldfile.getName()+" to : "+newFileName+" FAILED";
+                log.error(msg);
+                throw new Exception(msg);
             }
         }
-        return result;
     }
     
     /*
@@ -271,18 +328,19 @@ public class EbwCopyTool extends Thread implements Variables {
                 //  After Syncing the remote property file should be changed
                 changeRemotePropertyFile(srv);
                 //  After changing the remote propertyFile, the Tables should be loaded
-
-                //  After Loading the tables the server instance should be restarted, Please also make check if server can be STARTED!!!
+                updateDatabase(srv);
+                //  After Loading the tables the server instance should be restarted, Please also make check if server can be STARTED!!!            
             }
+        //  EXCEPTION Handling....
         } catch (InterruptedException ex) {
             log.error("InteruptedException handling of host: "+host+" exception message was: "+ex.getMessage());
-            System.exit(1);            
+            exitSystem(2);
         } catch (IOException ex) {
             log.error("IOException during handling of host: "+host+" exception message was: "+ex.getMessage());
-            System.exit(1);            
+            exitSystem(2);
         } catch (Exception ex) {
             log.error("General Exception during handling of host: "+host+" exception message was: "+ex.getMessage());
-            System.exit(1);            
+            exitSystem(2);
         } finally{
             log.info("==================   EbwCopyTool STOPPED at: "+EbwCopyToolHelper.getCurrentDateTime()+"   ==================");
         }
@@ -298,8 +356,13 @@ public class EbwCopyTool extends Thread implements Variables {
             ebw.renameFiles();
             ebw.start();
         }catch(Exception ex){
-            log.error("Something went wrong initializing...,msg: "+ex.getMessage());
-            System.exit(1);
+            log.error("Something went wrong...,msg: "+ex.getMessage());
+            ebw.exitSystem(1);
         }        
+    }
+    
+    private void exitSystem(int nr){
+        log.error("Exiting with code : "+nr);
+        System.exit(nr);
     }
 }

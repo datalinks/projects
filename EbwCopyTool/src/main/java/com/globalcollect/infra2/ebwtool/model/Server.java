@@ -10,6 +10,17 @@ package com.globalcollect.infra2.ebwtool.model;
  * @author cvugrine
  */
 public class Server {
+    private Environments environment;
+
+    public Environments getEnvironment() {
+        return environment;
+    }
+
+    public void setEnvironment(Environments environment) {
+        this.environment = environment;
+    }
+    
+    
     private String propertyFile;
 
     public String getPropertyFile() {
